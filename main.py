@@ -1,4 +1,5 @@
 import os
+import threading
 import asyncio
 import logging
 from dotenv import load_dotenv
@@ -30,7 +31,6 @@ TARGET_CHANNEL_ID = int(os.getenv("TARGET_CHANNEL_ID"))
 HEADER_TO_REMOVE = os.getenv("HEADER_TO_REMOVE")
 RP_BOT_ID = int(os.getenv("RP_BOT_ID"))
 
-# Создаем Telegram приложение
 telegram_app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
 async def handle_telegram_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -52,10 +52,15 @@ telegram_app.add_handler(
     MessageHandler(filters.TEXT & ~filters.COMMAND, handle_telegram_message)
 )
 
+def run_telegram():
+    telegram_app.run_polling()
+
 intents = discord.Intents.default()
 intents.message_content = True
 discord_client = discord.Client(intents=intents)
 tree = app_commands.CommandTree(discord_client)
+
+from datetime import datetime
 
 @discord_client.event
 async def on_ready():
@@ -70,6 +75,8 @@ async def on_ready():
     print(f"Discord-бот {discord_client.user} готов!")
     print(f"Slash-команды синхронизированы!")
     log_action("Discord-бот запущен и готов к работе!")
+
+
 
 @tree.command(name="ping", description="Проверка работы бота")
 async def ping(interaction: discord.Interaction):
@@ -94,12 +101,9 @@ async def stats_command(interaction: discord.Interaction):
     log_action(f"/stats запрошена: от {interaction.user} (id: {interaction.user.id})")
     await interaction.response.send_message(msg)
 
-async def main():
-    # Запуск Telegram бота в отдельной задаче
-    telegram_task = asyncio.create_task(telegram_app.run_polling())
-    # Запуск Discord бота
+async def run_discord():
     await discord_client.start(DISCORD_BOT_TOKEN)
-    await telegram_task
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    threading.Thread(target=run_telegram, daemon=True).start()
+    asyncio.run(run_discord())
