@@ -1,12 +1,29 @@
 import os
 import threading
 import asyncio
+import logging
 from dotenv import load_dotenv
-
 import discord
 from discord import app_commands
 from telegram.ext import Application, MessageHandler, filters, ContextTypes
 from telegram import Update
+
+# === Логирование ===
+logging.basicConfig(
+    filename='bot.log',
+    level=logging.INFO,
+    format='[%(asctime)s] %(levelname)s: %(message)s',
+    encoding='utf-8'
+)
+
+def log_action(message):
+    logging.info(message)
+
+# === Статистика ===
+stats = {
+    'ping_count': 0,
+    'users': set()
+}
 
 load_dotenv()
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -30,6 +47,7 @@ async def handle_telegram_message(update: Update, context: ContextTypes.DEFAULT_
         channel = discord_client.get_channel(TARGET_CHANNEL_ID)
         if channel:
             await channel.send(f"@everyone\n{body}")
+            log_action(f"Сообщение переслано из Telegram: {body}")
 
 telegram_app.add_handler(
     MessageHandler(filters.TEXT & ~filters.COMMAND, handle_telegram_message)
@@ -48,16 +66,30 @@ async def on_ready():
     await tree.sync()
     print(f"Discord-бот {discord_client.user} готов!")
     print(f"Slash-команды синхронизированы!")
+    log_action("Discord-бот запущен и готов к работе!")
 
 @tree.command(name="ping", description="Проверка работы бота")
 async def ping(interaction: discord.Interaction):
     if interaction.channel_id != TARGET_CHANNEL_ID:
+        log_action(f"Попытка /ping не в том канале: от {interaction.user} (id: {interaction.user.id})")
         await interaction.response.send_message(
-            "слышь иди нахуй",
-            ephemeral=True
+            "слышь иди нахуй", ephemeral=True
         )
         return
+    stats['ping_count'] += 1
+    stats['users'].add(interaction.user.id)
+    log_action(f"/ping исполнена: от {interaction.user} (id: {interaction.user.id})")
     await interaction.response.send_message("понг блять, он работает не еби его")
+
+@tree.command(name="stats", description="Статистика использования бота")
+async def stats_command(interaction: discord.Interaction):
+    msg = (
+        f"Статистика использования:\n"
+        f"- /ping вызван: {stats['ping_count']} раз\n"
+        f"- Уникальных пользователей: {len(stats['users'])}\n"
+    )
+    log_action(f"/stats запрошена: от {interaction.user} (id: {interaction.user.id})")
+    await interaction.response.send_message(msg)
 
 async def run_discord():
     await discord_client.start(DISCORD_BOT_TOKEN)
