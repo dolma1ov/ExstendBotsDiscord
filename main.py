@@ -7,6 +7,7 @@ import discord
 from discord import app_commands
 from telegram.ext import Application, MessageHandler, filters, ContextTypes
 from telegram import Update
+from datetime import datetime
 
 logging.basicConfig(
     filename='bot.log',
@@ -59,18 +60,23 @@ intents.message_content = True
 discord_client = discord.Client(intents=intents)
 tree = app_commands.CommandTree(discord_client)
 
+from datetime import datetime
+
 @discord_client.event
 async def on_ready():
-    activity = discord.Streaming(
-        name="Очкарик экстенд",
-        url="https://www.twitch.tv/ilven69"
+    start_time = datetime.utcnow()
+    activity = discord.Activity(
+        type=discord.ActivityType.watching,
+        name="📺🟣 Twitch: ilven69 👾",
+        start=start_time
     )
     await discord_client.change_presence(activity=activity, status=discord.Status.online)
-
     await tree.sync()
     print(f"Discord-бот {discord_client.user} готов!")
     print(f"Slash-команды синхронизированы!")
     log_action("Discord-бот запущен и готов к работе!")
+
+
 
 @tree.command(name="ping", description="Проверка работы бота")
 async def ping(interaction: discord.Interaction):
