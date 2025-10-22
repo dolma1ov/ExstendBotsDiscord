@@ -8,7 +8,6 @@ from discord import app_commands
 from telegram.ext import Application, MessageHandler, filters, ContextTypes
 from telegram import Update
 
-# === Логирование ===
 logging.basicConfig(
     filename='bot.log',
     level=logging.INFO,
@@ -19,7 +18,6 @@ logging.basicConfig(
 def log_action(message):
     logging.info(message)
 
-# === Статистика ===
 stats = {
     'ping_count': 0,
     'users': set()
@@ -63,6 +61,12 @@ tree = app_commands.CommandTree(discord_client)
 
 @discord_client.event
 async def on_ready():
+    activity = discord.Streaming(
+        name="Очкарик экстенд",
+        url="https://www.twitch.tv/ilven69"
+    )
+    await discord_client.change_presence(activity=activity, status=discord.Status.online)
+
     await tree.sync()
     print(f"Discord-бот {discord_client.user} готов!")
     print(f"Slash-команды синхронизированы!")
