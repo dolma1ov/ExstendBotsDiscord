@@ -1,5 +1,4 @@
 import os
-import threading
 import asyncio
 import logging
 from dotenv import load_dotenv
@@ -9,14 +8,8 @@ from telegram.ext import Application, MessageHandler, filters, ContextTypes
 from telegram import Update
 from datetime import datetime
 
-logging.basicConfig(
-    filename='bot.log',
-    level=logging.INFO,
-    format='[%(asctime)s] %(levelname)s: %(message)s',
-    encoding='utf-8'
-)
-
 def log_action(message):
+    print(f"[LOG] {message}")  # прямой вывод в консоль
     logging.info(message)
 
 stats = {
@@ -34,33 +27,46 @@ RP_BOT_ID = int(os.getenv("RP_BOT_ID"))
 telegram_app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
 async def handle_telegram_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print("[DEBUG] Получено сообщение от Telegram!")
     message = update.message
-    if not message or message.from_user.id != RP_BOT_ID or not message.text:
+    if not message:
+        print("[DEBUG] Нет объекта message — не обрабатываем.")
         return
+    print(f"[DEBUG] message.from_user.id = {getattr(message.from_user, 'id', None)} RP_BOT_ID = {RP_BOT_ID}")
+    if message.from_user.id != RP_BOT_ID:
+        print("[DEBUG] Не тот отправитель — игнорируем.")
+        return
+    if not message.text:
+        print("[DEBUG] Сообщение не содержит текст — игнорируем.")
+        return
+
     content = message.text.strip()
+    print(f"[DEBUG] Исходный контент: {content!r}")
     if content.startswith(HEADER_TO_REMOVE):
         body = content[len(HEADER_TO_REMOVE):].lstrip("\n").strip()
+        print("[DEBUG] HEADER_TO_REMOVE найден — тело:", body)
     else:
         body = content
+        print("[DEBUG] HEADER_TO_REMOVE — нет, тело:", body)
+
     if body:
+        print("[DEBUG] Пробуем получить канал Discord:", TARGET_CHANNEL_ID)
         channel = discord_client.get_channel(TARGET_CHANNEL_ID)
         if channel:
+            print(f"[DEBUG] Канал Discord найден: {channel}. Пытаемся отправить сообщение…")
             await channel.send(f"@everyone\n{body}")
             log_action(f"Сообщение переслано из Telegram: {body}")
+        else:
+            print("[ERR] Канал Discord не найден!")
 
 telegram_app.add_handler(
     MessageHandler(filters.TEXT & ~filters.COMMAND, handle_telegram_message)
 )
 
-def run_telegram():
-    telegram_app.run_polling()
-
 intents = discord.Intents.default()
 intents.message_content = True
 discord_client = discord.Client(intents=intents)
 tree = app_commands.CommandTree(discord_client)
-
-from datetime import datetime
 
 @discord_client.event
 async def on_ready():
@@ -72,14 +78,13 @@ async def on_ready():
     )
     await discord_client.change_presence(activity=activity, status=discord.Status.online)
     await tree.sync()
-    print(f"Discord-бот {discord_client.user} готов!")
-    print(f"Slash-команды синхронизированы!")
+    print(f"[INFO] Discord-бот {discord_client.user} готов!")
+    print(f"[INFO] Slash-команды синхронизированы!")
     log_action("Discord-бот запущен и готов к работе!")
-
-
 
 @tree.command(name="ping", description="Проверка работы бота")
 async def ping(interaction: discord.Interaction):
+    print(f"[LOG] ping от {interaction.user.id}")
     if interaction.channel_id != TARGET_CHANNEL_ID:
         log_action(f"Попытка /ping не в том канале: от {interaction.user} (id: {interaction.user.id})")
         await interaction.response.send_message(
@@ -98,12 +103,14 @@ async def stats_command(interaction: discord.Interaction):
         f"- /ping вызван: {stats['ping_count']} раз\n"
         f"- Уникальных пользователей: {len(stats['users'])}\n"
     )
+    print(f"[LOG] stats вызвал: {interaction.user.id}")
     log_action(f"/stats запрошена: от {interaction.user} (id: {interaction.user.id})")
     await interaction.response.send_message(msg)
 
-async def run_discord():
+async def main():
+    telegram_task = asyncio.create_task(telegram_app.run_polling())
     await discord_client.start(DISCORD_BOT_TOKEN)
+    await telegram_task
 
 if __name__ == '__main__':
-    threading.Thread(target=run_telegram, daemon=True).start()
-    asyncio.run(run_discord())
+    asyncio.run(main())
