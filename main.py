@@ -42,13 +42,21 @@ tg_client = TelegramClient(SESSION_FILE, API_ID, API_HASH)
 
 @tg_client.on(events.NewMessage(incoming=True))
 async def tg_handler(event):
-    sender = await event.get_sender()
-    sender_id = sender.id if sender else None
+    try:
+        sender = await event.get_sender()
+        sender_id = sender.id if sender else None
+    except Exception as e:
+        print(f"[ERROR] get_sender failed: {e}")
+        sender_id = None
+
     msg_text = event.message.message
     chat_id = event.chat_id
     stats["total"] += 1
 
     print(f"[LOG] TG: from id={sender_id} chat={chat_id} text={msg_text!r}", flush=True)
+
+    if sender_id is None:
+        return
 
     if ALLOWED_SENDER_IDS and sender_id in ALLOWED_SENDER_IDS:
         stats["allowed"] += 1
