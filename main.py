@@ -68,6 +68,9 @@ async def tg_handler(event):
         if sender_id is None:
             return
 
+        if "забили Вашей организации войну за" not in msg_text:
+            return
+
         if ALLOWED_SENDER_IDS and sender_id in ALLOWED_SENDER_IDS:
             stats["allowed"] += 1
             if msg_text:
@@ -79,6 +82,7 @@ async def tg_handler(event):
                     print("[ERR] Канал Discord не найден!", flush=True)
     except Exception as global_e:
         print(f"[CRITICAL ERROR] event handler exception: {global_e}")
+
 
 @tree.command(name="ping", description="Проверка работы бота")
 async def ping_command(interaction: discord.Interaction):
