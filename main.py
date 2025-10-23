@@ -6,7 +6,7 @@ import discord
 from discord import app_commands
 from telegram.ext import Application, MessageHandler, filters, ContextTypes
 from telegram import Update
-from datetime import datetime
+from datetime import datetime, UTC
 
 def log_action(message):
     print(f"[LOG] {message}", flush=True)
@@ -70,7 +70,7 @@ tree = app_commands.CommandTree(discord_client)
 
 @discord_client.event
 async def on_ready():
-    start_time = datetime.utcnow()
+    start_time = datetime.now(UTC)
     activity = discord.Activity(
         type=discord.ActivityType.watching,
         name="📺🟣 Twitch: ilven69 👾",
