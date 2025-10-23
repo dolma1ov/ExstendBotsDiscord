@@ -116,8 +116,19 @@ async def check_twitch_live(discord_client, sent_last=[]):
     channel = discord_client.get_channel(TWITCH_NOTIFY_CHANNEL_ID)
     live_now = len(data) > 0
     if live_now and not sent_last:
+        stream_title = data[0].get('title', 'Стрим Twitch')
+        twitch_url = f"https://twitch.tv/{TWITCH_USERNAME}"
+        alt1 = f"https://m.twitch.tv/{TWITCH_USERNAME}"
+        alt2 = f"https://player.twitch.tv/?channel={TWITCH_USERNAME}"
+        msg = (
+            "@everyone\n"
+            f"{stream_title}\n"
+            f"{twitch_url}\n"
+            f"{alt1}\n"
+            f"{alt2}"
+        )   
         if channel:
-            await channel.send(f"@everyone Стрим Ochkarik_Exstend: https://twitch.tv/{TWITCH_USERNAME} начался!")
+            await channel.send(msg)
         sent_last.append('sent')
     elif not live_now and sent_last:
         sent_last.clear()
