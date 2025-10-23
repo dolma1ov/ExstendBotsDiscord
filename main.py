@@ -26,9 +26,10 @@ RP_BOT_ID = int(os.getenv("RP_BOT_ID"))
 
 telegram_app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
+# Сюда логируем каждое сообщение, вне зависимости от фильтров!
 async def handle_telegram_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    print("[DEBUG] Получено сообщение от Telegram!")
     message = update.message
+    print(f"[TP_LOG] Любое сообщение в Telegram: user_id={getattr(message.from_user, 'id', None)}, text={getattr(message, 'text', None)!r}")
     if not message:
         print("[DEBUG] Нет объекта message — не обрабатываем.")
         return
@@ -44,16 +45,16 @@ async def handle_telegram_message(update: Update, context: ContextTypes.DEFAULT_
     print(f"[DEBUG] Исходный контент: {content!r}")
     if content.startswith(HEADER_TO_REMOVE):
         body = content[len(HEADER_TO_REMOVE):].lstrip("\n").strip()
-        print("[DEBUG] HEADER_TO_REMOVE найден — тело:", body)
+        print(f"[DEBUG] HEADER_TO_REMOVE найден — тело: {body}")
     else:
         body = content
-        print("[DEBUG] HEADER_TO_REMOVE — нет, тело:", body)
+        print(f"[DEBUG] HEADER_TO_REMOVE — нет, тело: {body}")
 
     if body:
-        print("[DEBUG] Пробуем получить канал Discord:", TARGET_CHANNEL_ID)
+        print(f"[DEBUG] Пробуем получить канал Discord: {TARGET_CHANNEL_ID}")
         channel = discord_client.get_channel(TARGET_CHANNEL_ID)
         if channel:
-            print(f"[DEBUG] Канал Discord найден: {channel}. Пытаемся отправить сообщение…")
+            print(f"[DS_LOG] Пытаемся отправить из ТГ в ДС: {body!r}")
             await channel.send(f"@everyone\n{body}")
             log_action(f"Сообщение переслано из Telegram: {body}")
         else:
