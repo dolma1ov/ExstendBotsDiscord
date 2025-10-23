@@ -1,5 +1,6 @@
 import os
 import asyncio
+import requests
 from dotenv import load_dotenv
 from telethon import TelegramClient, events
 import discord
@@ -16,6 +17,11 @@ ALLOWED_SENDER_IDS = [
     int(x.strip()) for x in os.getenv("ALLOWED_SENDER_IDS", "").split(",") if x.strip().isdigit()
 ]
 BLACKLIST_CHAT_IDS = set()
+
+TWITCH_CLIENT_ID = os.getenv("TWITCH_CLIENT_ID")
+TWITCH_CLIENT_SECRET = os.getenv("TWITCH_CLIENT_SECRET")
+TWITCH_USERNAME = os.getenv("TWITCH_USERNAME")
+TWITCH_NOTIFY_CHANNEL_ID = int(os.getenv("TWITCH_NOTIFY_CHANNEL_ID", TARGET_CHANNEL_ID))
 
 stats = {
     "total": 0,
@@ -54,7 +60,7 @@ async def tg_handler(event):
         except Exception as e:
             print(f"[ERROR] get_sender failed: {e}")
             sender_id = None
-        
+
         msg_text = getattr(event.message, "message", "")
         stats["total"] += 1
         print(f"[LOG] TG: from id={sender_id} chat={chat_id} text={msg_text!r}", flush=True)
@@ -86,10 +92,47 @@ async def stats_command(interaction: discord.Interaction):
     )
     await interaction.response.send_message(msg, ephemeral=False)
 
+def get_twitch_token():
+    url = 'https://id.twitch.tv/oauth2/token'
+    params = {
+        'client_id': TWITCH_CLIENT_ID,
+        'client_secret': TWITCH_CLIENT_SECRET,
+        'grant_type': 'client_credentials'
+    }
+    r = requests.post(url, params)
+    return r.json().get('access_token')
+
+async def check_twitch_live(discord_client, sent_last=[]):
+    if not TWITCH_CLIENT_ID or not TWITCH_CLIENT_SECRET or not TWITCH_USERNAME:
+        return
+    token = get_twitch_token()
+    headers = {
+        'Client-ID': TWITCH_CLIENT_ID,
+        'Authorization': f'Bearer {token}'
+    }
+    url = f'https://api.twitch.tv/helix/streams?user_login={TWITCH_USERNAME}'
+    r = requests.get(url, headers=headers)
+    data = r.json().get('data', [])
+    channel = discord_client.get_channel(TWITCH_NOTIFY_CHANNEL_ID)
+    live_now = len(data) > 0
+    if live_now and not sent_last:
+        if channel:
+            await channel.send(f"@everyone Стрим Ochkarik_Exstend: https://twitch.tv/{TWITCH_USERNAME} начался!")
+        sent_last.append('sent')
+    elif not live_now and sent_last:
+        sent_last.clear()
+
+async def twitch_loop():
+    sent_last = []
+    while True:
+        await check_twitch_live(discord_client, sent_last)
+        await asyncio.sleep(120)
+
 async def main():
     tg_task = asyncio.create_task(tg_client.start())
     ds_task = asyncio.create_task(discord_client.start(DISCORD_BOT_TOKEN))
-    await asyncio.gather(tg_task, ds_task)
+    twitch_task = asyncio.create_task(twitch_loop())
+    await asyncio.gather(tg_task, ds_task, twitch_task)
 
 if __name__ == '__main__':
     asyncio.run(main())
