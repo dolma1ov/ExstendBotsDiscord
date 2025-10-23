@@ -9,7 +9,7 @@ from telegram import Update
 from datetime import datetime
 
 def log_action(message):
-    print(f"[LOG] {message}")  # прямой вывод в консоль
+    print(f"[LOG] {message}", flush=True)
     logging.info(message)
 
 stats = {
@@ -57,7 +57,7 @@ async def handle_telegram_message(update: Update, context: ContextTypes.DEFAULT_
             await channel.send(f"@everyone\n{body}")
             log_action(f"Сообщение переслано из Telegram: {body}")
         else:
-            print("[ERR] Канал Discord не найден!")
+            print("[ERR] Канал Discord не найден!", flush=True)
 
 telegram_app.add_handler(
     MessageHandler(filters.TEXT & ~filters.COMMAND, handle_telegram_message)
@@ -78,13 +78,13 @@ async def on_ready():
     )
     await discord_client.change_presence(activity=activity, status=discord.Status.online)
     await tree.sync()
-    print(f"[INFO] Discord-бот {discord_client.user} готов!")
-    print(f"[INFO] Slash-команды синхронизированы!")
+    print(f"[INFO] Discord-бот {discord_client.user} готов!", flush=True)
+    print(f"[INFO] Slash-команды синхронизированы!", flush=True)
     log_action("Discord-бот запущен и готов к работе!")
 
 @tree.command(name="ping", description="Проверка работы бота")
 async def ping(interaction: discord.Interaction):
-    print(f"[LOG] ping от {interaction.user.id}")
+    print(f"[LOG] ping от {interaction.user.id}", flush=True)
     if interaction.channel_id != TARGET_CHANNEL_ID:
         log_action(f"Попытка /ping не в том канале: от {interaction.user} (id: {interaction.user.id})")
         await interaction.response.send_message(
@@ -103,14 +103,18 @@ async def stats_command(interaction: discord.Interaction):
         f"- /ping вызван: {stats['ping_count']} раз\n"
         f"- Уникальных пользователей: {len(stats['users'])}\n"
     )
-    print(f"[LOG] stats вызвал: {interaction.user.id}")
+    print(f"[LOG] stats вызвал: {interaction.user.id}", flush=True)
     log_action(f"/stats запрошена: от {interaction.user} (id: {interaction.user.id})")
     await interaction.response.send_message(msg)
 
 async def main():
-    telegram_task = asyncio.create_task(telegram_app.run_polling())
+    print('[LOG] Telegram initializing...', flush=True)
+    await telegram_app.initialize()
+    tg_task = asyncio.create_task(telegram_app.start())
+    print('[LOG] Telegram запущен!', flush=True)
     await discord_client.start(DISCORD_BOT_TOKEN)
-    await telegram_task
+    print('[LOG] Discord запущен!', flush=True)
+    await tg_task
 
 if __name__ == '__main__':
     asyncio.run(main())
