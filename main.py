@@ -15,7 +15,7 @@ TARGET_CHANNEL_ID = int(os.getenv("TARGET_CHANNEL_ID"))
 ALLOWED_SENDER_IDS = [
     int(x.strip()) for x in os.getenv("ALLOWED_SENDER_IDS", "").split(",") if x.strip().isdigit()
 ]
-BLACKLIST_CHAT_IDS = set()  # Можно добавить плохие chat_id по мере надобности
+BLACKLIST_CHAT_IDS = set()
 
 stats = {
     "total": 0,
