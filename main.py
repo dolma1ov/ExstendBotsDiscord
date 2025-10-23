@@ -15,6 +15,7 @@ TARGET_CHANNEL_ID = int(os.getenv("TARGET_CHANNEL_ID"))
 ALLOWED_SENDER_IDS = [
     int(x.strip()) for x in os.getenv("ALLOWED_SENDER_IDS", "").split(",") if x.strip().isdigit()
 ]
+BLACKLIST_CHAT_IDS = set()  # Можно добавить плохие chat_id по мере надобности
 
 stats = {
     "total": 0,
@@ -42,30 +43,36 @@ tg_client = TelegramClient(SESSION_FILE, API_ID, API_HASH)
 @tg_client.on(events.NewMessage(incoming=True))
 async def tg_handler(event):
     try:
-        sender = await event.get_sender()
-        sender_id = sender.id if sender else None
-    except Exception as e:
-        print(f"[ERROR] get_sender failed: {e}")
-        sender_id = None
+        chat_id = event.chat_id
+        if chat_id in BLACKLIST_CHAT_IDS:
+            print(f"[SKIP] Blacklisted chat_id: {chat_id}")
+            return
 
-    msg_text = event.message.message
-    chat_id = event.chat_id
-    stats["total"] += 1
+        try:
+            sender = await event.get_sender()
+            sender_id = sender.id if sender else None
+        except Exception as e:
+            print(f"[ERROR] get_sender failed: {e}")
+            sender_id = None
+        
+        msg_text = getattr(event.message, "message", "")
+        stats["total"] += 1
+        print(f"[LOG] TG: from id={sender_id} chat={chat_id} text={msg_text!r}", flush=True)
 
-    print(f"[LOG] TG: from id={sender_id} chat={chat_id} text={msg_text!r}", flush=True)
+        if sender_id is None:
+            return
 
-    if sender_id is None:
-        return
-
-    if ALLOWED_SENDER_IDS and sender_id in ALLOWED_SENDER_IDS:
-        stats["allowed"] += 1
-        if msg_text:
-            channel = discord_client.get_channel(TARGET_CHANNEL_ID)
-            if channel:
-                await channel.send(f"@everyone\n{msg_text}")
-                print(f"[DS_LOG] Переслано из TG в Discord: {msg_text!r}", flush=True)
-            else:
-                print("[ERR] Канал Discord не найден!", flush=True)
+        if ALLOWED_SENDER_IDS and sender_id in ALLOWED_SENDER_IDS:
+            stats["allowed"] += 1
+            if msg_text:
+                channel = discord_client.get_channel(TARGET_CHANNEL_ID)
+                if channel:
+                    await channel.send(f"@everyone\n{msg_text}")
+                    print(f"[DS_LOG] Переслано из TG в Discord: {msg_text!r}", flush=True)
+                else:
+                    print("[ERR] Канал Discord не найден!", flush=True)
+    except Exception as global_e:
+        print(f"[CRITICAL ERROR] event handler exception: {global_e}")
 
 @tree.command(name="ping", description="Проверка работы бота")
 async def ping_command(interaction: discord.Interaction):
