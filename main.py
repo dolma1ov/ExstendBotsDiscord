@@ -28,7 +28,6 @@ tree = app_commands.CommandTree(discord_client)
 
 @discord_client.event
 async def on_ready():
-    # Ставим активность "Смотрит Twitch"
     activity = discord.Activity(
         type=discord.ActivityType.watching,
         name="📺🟣 Twitch: ilven69 👾",
