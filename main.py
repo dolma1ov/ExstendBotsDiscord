@@ -21,7 +21,8 @@ BLACKLIST_CHAT_IDS = set()
 
 TWITCH_CLIENT_ID = os.getenv("TWITCH_CLIENT_ID")
 TWITCH_CLIENT_SECRET = os.getenv("TWITCH_CLIENT_SECRET")
-TWITCH_USERNAME = os.getenv("TWITCH_USERNAME")
+# список бомжей:
+TWITCH_USERNAMES = ["ilven69", "devv_o"]
 TWITCH_NOTIFY_CHANNEL_ID = int(os.getenv("TWITCH_NOTIFY_CHANNEL_ID", TARGET_CHANNEL_ID))
 
 stats = {
@@ -153,43 +154,43 @@ def get_twitch_token():
     r = requests.post(url, params)
     return r.json().get('access_token')
 
-async def check_twitch_live(discord_client, sent_last=[]):
-    if not TWITCH_CLIENT_ID or not TWITCH_CLIENT_SECRET or not TWITCH_USERNAME:
-        return
+async def check_twitch_live_multi(discord_client, sent_last):
     token = get_twitch_token()
     headers = {
         'Client-ID': TWITCH_CLIENT_ID,
         'Authorization': f'Bearer {token}'
     }
-    url = f'https://api.twitch.tv/helix/streams?user_login={TWITCH_USERNAME}'
-    r = requests.get(url, headers=headers)
-    data = r.json().get('data', [])
     channel = discord_client.get_channel(TWITCH_NOTIFY_CHANNEL_ID)
-    live_now = len(data) > 0
-    if live_now and not sent_last:
-        stream_title = data[0].get('title', 'Стрим Twitch')
-        twitch_url = f"https://twitch.tv/{TWITCH_USERNAME}"
-        msg = (
-            "@everyone\n"
-            f"{stream_title}\n"
-            f"{twitch_url}\n"
-        )   
-        if channel:
-            await channel.send(msg)
-        sent_last.append('sent')
-    elif not live_now and sent_last:
-        sent_last.clear()
+    for username in TWITCH_USERNAMES:
+        url = f'https://api.twitch.tv/helix/streams?user_login={username}'
+        r = requests.get(url, headers=headers)
+        data = r.json().get('data', [])
+        live_now = len(data) > 0
+        key = f"{username}_live"
+        if live_now and key not in sent_last:
+            stream_title = data[0].get('title', 'Стрим Twitch')
+            twitch_url = f"https://twitch.tv/{username}"
+            msg = (
+                f"@everyone\n"
+                f"{stream_title}\n"
+                f"{twitch_url}\n"
+            )
+            if channel:
+                await channel.send(msg)
+            sent_last[key] = True
+        elif not live_now and key in sent_last:
+            sent_last.pop(key)
 
-async def twitch_loop():
-    sent_last = []
+async def twitch_loop_multi():
+    sent_last = {}
     while True:
-        await check_twitch_live(discord_client, sent_last)
+        await check_twitch_live_multi(discord_client, sent_last)
         await asyncio.sleep(120)
 
 async def main():
     tg_task = asyncio.create_task(tg_client.start())
     ds_task = asyncio.create_task(discord_client.start(DISCORD_BOT_TOKEN))
-    twitch_task = asyncio.create_task(twitch_loop())
+    twitch_task = asyncio.create_task(twitch_loop_multi())
     await asyncio.gather(tg_task, ds_task, twitch_task)
 
 if __name__ == '__main__':
