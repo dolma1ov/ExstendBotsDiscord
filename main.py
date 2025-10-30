@@ -153,9 +153,19 @@ async def tg_handler(event):
 async def ping_command(interaction: discord.Interaction):
     await interaction.response.send_message("понг блять, он работает не еби его", ephemeral=False)
 
-@tree.command(name="taro", description="Гадание карт на сына шлюхи")
-async def card_command(interaction: discord.Interaction):
-    await interaction.response.send_message("я думаю что сын шлюхи - @_6966", ephemeral=False)
+@tree.command(name="taro", description="Рассказать михуну кто он на самом деле")
+async def taro_command(interaction: discord.Interaction):
+    user_id = 695625959289782374
+    try:
+        member = await interaction.guild.fetch_member(user_id)
+        mention = member.mention
+        await interaction.response.send_message(
+            f"{mention}, ты сын шлюхи (без негатива)", ephemeral=False
+        )
+    except Exception as e:
+        await interaction.response.send_message(
+            f"Пользователь с id {user_id} не найден!", ephemeral=True
+        )
 
 @tree.command(name="stats", description="Статистика полученных сообщений")
 async def stats_command(interaction: discord.Interaction):
