@@ -22,7 +22,7 @@ BLACKLIST_CHAT_IDS = set()
 
 TWITCH_CLIENT_ID = os.getenv("TWITCH_CLIENT_ID")
 TWITCH_CLIENT_SECRET = os.getenv("TWITCH_CLIENT_SECRET")
-TWITCH_USERNAMES = ["ilven69", "devv_o"]
+TWITCH_USERNAMES = ["ilven69", "devv_o", "mihynchik_"]
 TWITCH_NOTIFY_CHANNEL_ID = int(os.getenv("TWITCH_NOTIFY_CHANNEL_ID", TARGET_CHANNEL_ID))
 
 stats = {
