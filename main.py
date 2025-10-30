@@ -98,7 +98,6 @@ async def tg_handler(event):
 
         updated = False
 
-        # Отслеживание фаз ВОЙНЫ:
         if "Ваша организация забила" in msg_text:
             last_attack_type = "atk"
             m = re.search(r'за ([^ ]+)[^,]* на [0-9:]+', msg_text)
@@ -153,6 +152,10 @@ async def tg_handler(event):
 @tree.command(name="ping", description="Проверка работы бота")
 async def ping_command(interaction: discord.Interaction):
     await interaction.response.send_message("понг блять, он работает не еби его", ephemeral=False)
+
+@tree.command(name="taro", description="Гадание карт на сына шлюхи")
+async def card_command(interaction: discord.Interaction):
+    await interaction.response.send_message("я думаю что сын шлюхи - @_6966", ephemeral=False)
 
 @tree.command(name="stats", description="Статистика полученных сообщений")
 async def stats_command(interaction: discord.Interaction):
