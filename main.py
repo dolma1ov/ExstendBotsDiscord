@@ -37,10 +37,8 @@ war_stats = {
     "lose_def": 0
 }
 stats_message_id = None
-
-# Контекст для последнего боя
-last_attack_type = None  # "atk" или "def"
-last_battle_object = None  # Название склада/локации
+last_attack_type = None
+last_battle_object = None
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -51,7 +49,7 @@ tree = app_commands.CommandTree(discord_client)
 async def on_ready():
     activity = discord.Activity(
         type=discord.ActivityType.watching,
-        name="📺🟣 Twitch: ilven69 👾",
+        name="📺🟣 Author: dolma1ovvv 👾",
         start=datetime.now(UTC)
     )
     await discord_client.change_presence(activity=activity, status=discord.Status.online)
