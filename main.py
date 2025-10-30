@@ -1,6 +1,7 @@
 import os
 import asyncio
 import requests
+import re
 from dotenv import load_dotenv
 from telethon import TelegramClient, events
 import discord
@@ -21,7 +22,6 @@ BLACKLIST_CHAT_IDS = set()
 
 TWITCH_CLIENT_ID = os.getenv("TWITCH_CLIENT_ID")
 TWITCH_CLIENT_SECRET = os.getenv("TWITCH_CLIENT_SECRET")
-# список бомжей:
 TWITCH_USERNAMES = ["ilven69", "devv_o"]
 TWITCH_NOTIFY_CHANNEL_ID = int(os.getenv("TWITCH_NOTIFY_CHANNEL_ID", TARGET_CHANNEL_ID))
 
@@ -37,6 +37,10 @@ war_stats = {
     "lose_def": 0
 }
 stats_message_id = None
+
+# Контекст для последнего боя
+last_attack_type = None  # "atk" или "def"
+last_battle_object = None  # Название склада/локации
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -72,6 +76,7 @@ tg_client = TelegramClient(SESSION_FILE, API_ID, API_HASH)
 
 @tg_client.on(events.NewMessage(incoming=True))
 async def tg_handler(event):
+    global last_attack_type, last_battle_object
     try:
         chat_id = event.chat_id
         if chat_id in BLACKLIST_CHAT_IDS:
@@ -83,6 +88,7 @@ async def tg_handler(event):
         except Exception as e:
             print(f"[ERROR] get_sender failed: {e}")
             sender_id = None
+
         msg_text = getattr(event.message, "message", "")
         msg_text = msg_text.replace(
             "📋 Организация: события | Huxley_Exstendyan, сервер Burton", ""
@@ -92,20 +98,34 @@ async def tg_handler(event):
         if sender_id is None:
             return
 
-        # Счётчик войн
         updated = False
-        if "захватывает" in msg_text:
-            war_stats["win_attack"] += 1
-            updated = True
-        elif "проигрывает в бою" in msg_text and "забила" not in msg_text:
-            war_stats["lose_attack"] += 1
-            updated = True
-        elif "удерживает" in msg_text:
-            war_stats["win_def"] += 1
-            updated = True
-        elif "проигрывает в бою" in msg_text and "забили Вашей организации войну за" in msg_text:
-            war_stats["lose_def"] += 1
-            updated = True
+
+        # Отслеживание фаз ВОЙНЫ:
+        if "Ваша организация забила" in msg_text:
+            last_attack_type = "atk"
+            m = re.search(r'за ([^ ]+)[^,]* на [0-9:]+', msg_text)
+            last_battle_object = m.group(1) if m else None
+
+        elif "забили Вашей организации войну за" in msg_text:
+            last_attack_type = "def"
+            m = re.search(r'за ([^ ]+)[^,]* на [0-9:]+', msg_text)
+            last_battle_object = m.group(1) if m else None
+
+        elif ("Захватывает" in msg_text or "Удерживает" in msg_text or "Проигрывает в бою" in msg_text):
+            if last_attack_type == "atk" and "Захватывает" in msg_text:
+                war_stats["win_attack"] += 1
+                updated = True
+            elif last_attack_type == "atk" and "Проигрывает в бою" in msg_text:
+                war_stats["lose_attack"] += 1
+                updated = True
+            elif last_attack_type == "def" and "Удерживает" in msg_text:
+                war_stats["win_def"] += 1
+                updated = True
+            elif last_attack_type == "def" and "Проигрывает в бою" in msg_text:
+                war_stats["lose_def"] += 1
+                updated = True
+            last_attack_type = None
+            last_battle_object = None
 
         if updated:
             stat_msg = (
@@ -117,7 +137,7 @@ async def tg_handler(event):
             stats_channel = discord_client.get_channel(WAR_STATS_CHANNEL_ID)
             if stats_channel:
                 await send_or_update_stats_message(stats_channel, stat_msg)
-        
+
         if "забили Вашей организации войну за" not in msg_text:
             return
         if ALLOWED_SENDER_IDS and sender_id in ALLOWED_SENDER_IDS:
