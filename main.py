@@ -13,6 +13,7 @@ API_HASH = os.getenv('TG_API_HASH')
 SESSION_FILE = os.getenv('TG_SESSION', 'session')
 DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 TARGET_CHANNEL_ID = int(os.getenv("TARGET_CHANNEL_ID"))
+WAR_STATS_CHANNEL_ID = 1274645422542950411
 ALLOWED_SENDER_IDS = [
     int(x.strip()) for x in os.getenv("ALLOWED_SENDER_IDS", "").split(",") if x.strip().isdigit()
 ]
@@ -27,6 +28,14 @@ stats = {
     "total": 0,
     "allowed": 0
 }
+
+war_stats = {
+    "win_attack": 0,
+    "lose_attack": 0,
+    "win_def": 0,
+    "lose_def": 0
+}
+stats_message_id = None
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -44,6 +53,20 @@ async def on_ready():
     await tree.sync()
     print(f"[INFO] Discord-бот {discord_client.user} готов!", flush=True)
 
+async def send_or_update_stats_message(channel, text):
+    global stats_message_id
+    if stats_message_id is None:
+        msg = await channel.send(text)
+        stats_message_id = msg.id
+    else:
+        try:
+            msg = await channel.fetch_message(stats_message_id)
+            await msg.edit(content=text)
+        except Exception as e:
+            print(f"[ERROR] Edit stats msg: {e}")
+            msg = await channel.send(text)
+            stats_message_id = msg.id
+
 tg_client = TelegramClient(SESSION_FILE, API_ID, API_HASH)
 
 @tg_client.on(events.NewMessage(incoming=True))
@@ -53,24 +76,49 @@ async def tg_handler(event):
         if chat_id in BLACKLIST_CHAT_IDS:
             print(f"[SKIP] Blacklisted chat_id: {chat_id}")
             return
-
         try:
             sender = await event.get_sender()
             sender_id = sender.id if sender else None
         except Exception as e:
             print(f"[ERROR] get_sender failed: {e}")
             sender_id = None
-
         msg_text = getattr(event.message, "message", "")
+        msg_text = msg_text.replace(
+            "📋 Организация: события | Huxley_Exstendyan, сервер Burton", ""
+        ).strip()
         stats["total"] += 1
         print(f"[LOG] TG: from id={sender_id} chat={chat_id} text={msg_text!r}", flush=True)
-
         if sender_id is None:
             return
 
+        # Счётчик войн
+        updated = False
+        if "захватывает" in msg_text:
+            war_stats["win_attack"] += 1
+            updated = True
+        elif "проигрывает в бою" in msg_text and "забила" not in msg_text:
+            war_stats["lose_attack"] += 1
+            updated = True
+        elif "удерживает" in msg_text:
+            war_stats["win_def"] += 1
+            updated = True
+        elif "проигрывает в бою" in msg_text and "забили Вашей организации войну за" in msg_text:
+            war_stats["lose_def"] += 1
+            updated = True
+
+        if updated:
+            stat_msg = (
+                f"Выигранных атак - {war_stats['win_attack']}\n"
+                f"Проигранных атак - {war_stats['lose_attack']}\n"
+                f"Выигранных защит - {war_stats['win_def']}\n"
+                f"Проигранных защит - {war_stats['lose_def']}"
+            )
+            stats_channel = discord_client.get_channel(WAR_STATS_CHANNEL_ID)
+            if stats_channel:
+                await send_or_update_stats_message(stats_channel, stat_msg)
+        
         if "забили Вашей организации войну за" not in msg_text:
             return
-
         if ALLOWED_SENDER_IDS and sender_id in ALLOWED_SENDER_IDS:
             stats["allowed"] += 1
             if msg_text:
@@ -82,7 +130,6 @@ async def tg_handler(event):
                     print("[ERR] Канал Discord не найден!", flush=True)
     except Exception as global_e:
         print(f"[CRITICAL ERROR] event handler exception: {global_e}")
-
 
 @tree.command(name="ping", description="Проверка работы бота")
 async def ping_command(interaction: discord.Interaction):
@@ -122,14 +169,10 @@ async def check_twitch_live(discord_client, sent_last=[]):
     if live_now and not sent_last:
         stream_title = data[0].get('title', 'Стрим Twitch')
         twitch_url = f"https://twitch.tv/{TWITCH_USERNAME}"
-        alt1 = f"https://m.twitch.tv/{TWITCH_USERNAME}"
-        alt2 = f"https://player.twitch.tv/?channel={TWITCH_USERNAME}"
         msg = (
             "@everyone\n"
             f"{stream_title}\n"
             f"{twitch_url}\n"
-            f"{alt1}\n"
-            f"{alt2}"
         )   
         if channel:
             await channel.send(msg)
