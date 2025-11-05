@@ -22,7 +22,7 @@ BLACKLIST_CHAT_IDS = set()
 
 TWITCH_CLIENT_ID = os.getenv("TWITCH_CLIENT_ID")
 TWITCH_CLIENT_SECRET = os.getenv("TWITCH_CLIENT_SECRET")
-TWITCH_USERNAMES = ["ilven69", "devv_o", "mihynchik_"]
+TWITCH_USERNAMES = ["ilven69", "devv_o", "xanameee", "mihynchik_"]
 TWITCH_NOTIFY_CHANNEL_ID = int(os.getenv("TWITCH_NOTIFY_CHANNEL_ID", TARGET_CHANNEL_ID))
 
 stats = {
@@ -31,25 +31,54 @@ stats = {
 }
 
 war_stats = {
-    "win_attack": 0,
-    "lose_attack": 0,
-    "win_def": 0,
-    "lose_def": 0
+    "win_attack": 13,
+    "lose_attack": 11,
+    "win_def": 9,
+    "lose_def": 14
 }
 stats_message_id = None
-last_attack_type = None
-last_battle_object = None
+
+# Контекст для последнего боя
+last_attack_type = None  # "atk" или "def"
+last_battle_object = None  # Название склада/локации
 
 intents = discord.Intents.default()
 intents.message_content = True
 discord_client = discord.Client(intents=intents)
 tree = app_commands.CommandTree(discord_client)
 
+# ----------------- EMBED HELPERS -----------------
+
+def make_war_stats_embed():
+    embed = discord.Embed(
+        title="Статистика боёв",
+        color=0x9146FF  # Twitch-фиолетовый для WAR_STATS_CHANNEL_ID
+    )
+    embed.add_field(name="Выигранных атак", value=war_stats['win_attack'], inline=True)
+    embed.add_field(name="Проигранных атак", value=war_stats['lose_attack'], inline=True)
+    embed.add_field(name="Выигранных защит", value=war_stats['win_def'], inline=True)
+    embed.add_field(name="Проигранных защит", value=war_stats['lose_def'], inline=True)
+    embed.set_footer(text="Статистика обновляется автоматически")
+    embed.timestamp = datetime.now(UTC)
+    return embed
+
+def make_target_channel_embed(msg_text):
+    embed = discord.Embed(
+        title="📣 Входящее сообщение от Telegram",
+        description=msg_text,
+        color=0xFF0000  # Ярко красный для TARGET_CHANNEL_ID
+    )
+    embed.set_footer(text="Отслеживание важных событий")
+    embed.timestamp = datetime.now(UTC)
+    return embed
+
+# -------------------------------------------------
+
 @discord_client.event
 async def on_ready():
     activity = discord.Activity(
         type=discord.ActivityType.watching,
-        name="📺🟣 Author: dolma1ovvv 👾",
+        name="📺🟣  Author: dolma1ovvv👾",
         start=datetime.now(UTC)
     )
     await discord_client.change_presence(activity=activity, status=discord.Status.online)
@@ -58,16 +87,17 @@ async def on_ready():
 
 async def send_or_update_stats_message(channel, text):
     global stats_message_id
+    embed = make_war_stats_embed()
     if stats_message_id is None:
-        msg = await channel.send(text)
+        msg = await channel.send(embed=embed)
         stats_message_id = msg.id
     else:
         try:
             msg = await channel.fetch_message(stats_message_id)
-            await msg.edit(content=text)
+            await msg.edit(embed=embed)
         except Exception as e:
             print(f"[ERROR] Edit stats msg: {e}")
-            msg = await channel.send(text)
+            msg = await channel.send(embed=embed)
             stats_message_id = msg.id
 
 tg_client = TelegramClient(SESSION_FILE, API_ID, API_HASH)
@@ -87,6 +117,7 @@ async def tg_handler(event):
             print(f"[ERROR] get_sender failed: {e}")
             sender_id = None
 
+
         msg_text = getattr(event.message, "message", "")
         msg_text = msg_text.replace(
             "📋 Организация: события | Huxley_Exstendyan, сервер Burton", ""
@@ -98,6 +129,7 @@ async def tg_handler(event):
 
         updated = False
 
+        # Отслеживание фаз ВОЙНЫ:
         if "Ваша организация забила" in msg_text:
             last_attack_type = "atk"
             m = re.search(r'за ([^ ]+)[^,]* на [0-9:]+', msg_text)
@@ -125,15 +157,9 @@ async def tg_handler(event):
             last_battle_object = None
 
         if updated:
-            stat_msg = (
-                f"Выигранных атак - {war_stats['win_attack']}\n"
-                f"Проигранных атак - {war_stats['lose_attack']}\n"
-                f"Выигранных защит - {war_stats['win_def']}\n"
-                f"Проигранных защит - {war_stats['lose_def']}"
-            )
             stats_channel = discord_client.get_channel(WAR_STATS_CHANNEL_ID)
             if stats_channel:
-                await send_or_update_stats_message(stats_channel, stat_msg)
+                await send_or_update_stats_message(stats_channel, None)
 
         if "забили Вашей организации войну за" not in msg_text:
             return
@@ -142,7 +168,8 @@ async def tg_handler(event):
             if msg_text:
                 channel = discord_client.get_channel(TARGET_CHANNEL_ID)
                 if channel:
-                    await channel.send(f"@everyone\n{msg_text}")
+                    embed = make_target_channel_embed(msg_text)
+                    await channel.send(content="@everyone", embed=embed)
                     print(f"[DS_LOG] Переслано из TG в Discord: {msg_text!r}", flush=True)
                 else:
                     print("[ERR] Канал Discord не найден!", flush=True)
@@ -152,20 +179,6 @@ async def tg_handler(event):
 @tree.command(name="ping", description="Проверка работы бота")
 async def ping_command(interaction: discord.Interaction):
     await interaction.response.send_message("понг блять, он работает не еби его", ephemeral=False)
-
-@tree.command(name="taro", description="Рассказать михуну кто он на самом деле")
-async def taro_command(interaction: discord.Interaction):
-    user_id = 695625959289782374
-    try:
-        member = await interaction.guild.fetch_member(user_id)
-        mention = member.mention
-        await interaction.response.send_message(
-            f"{mention}, ты сын шлюхи (без негатива)", ephemeral=False
-        )
-    except Exception as e:
-        await interaction.response.send_message(
-            f"Пользователь с id {user_id} не найден!", ephemeral=True
-        )
 
 @tree.command(name="stats", description="Статистика полученных сообщений")
 async def stats_command(interaction: discord.Interaction):
@@ -184,45 +197,3 @@ def get_twitch_token():
     }
     r = requests.post(url, params)
     return r.json().get('access_token')
-
-async def check_twitch_live_multi(discord_client, sent_last):
-    token = get_twitch_token()
-    headers = {
-        'Client-ID': TWITCH_CLIENT_ID,
-        'Authorization': f'Bearer {token}'
-    }
-    channel = discord_client.get_channel(TWITCH_NOTIFY_CHANNEL_ID)
-    for username in TWITCH_USERNAMES:
-        url = f'https://api.twitch.tv/helix/streams?user_login={username}'
-        r = requests.get(url, headers=headers)
-        data = r.json().get('data', [])
-        live_now = len(data) > 0
-        key = f"{username}_live"
-        if live_now and key not in sent_last:
-            stream_title = data[0].get('title', 'Стрим Twitch')
-            twitch_url = f"https://twitch.tv/{username}"
-            msg = (
-                f"@everyone\n"
-                f"{stream_title}\n"
-                f"{twitch_url}\n"
-            )
-            if channel:
-                await channel.send(msg)
-            sent_last[key] = True
-        elif not live_now and key in sent_last:
-            sent_last.pop(key)
-
-async def twitch_loop_multi():
-    sent_last = {}
-    while True:
-        await check_twitch_live_multi(discord_client, sent_last)
-        await asyncio.sleep(120)
-
-async def main():
-    tg_task = asyncio.create_task(tg_client.start())
-    ds_task = asyncio.create_task(discord_client.start(DISCORD_BOT_TOKEN))
-    twitch_task = asyncio.create_task(twitch_loop_multi())
-    await asyncio.gather(tg_task, ds_task, twitch_task)
-
-if __name__ == '__main__':
-    asyncio.run(main())
