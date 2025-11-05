@@ -5,6 +5,7 @@ import re
 from dotenv import load_dotenv
 from telethon import TelegramClient, events
 import discord
+from discord.ext import commands
 from datetime import datetime, UTC
 
 load_dotenv()
@@ -37,19 +38,18 @@ war_stats = {
 }
 stats_message_id = None
 
-# Контекст для последнего боя
 last_attack_type = None
 last_battle_object = None
 
 intents = discord.Intents.default()
 intents.message_content = True
-discord_client = discord.Bot(intents=intents)
+discord_client = commands.Bot(command_prefix="!", intents=intents)
+tree = discord.app_commands.CommandTree(discord_client)
 
-# ----------------- EMBED HELPERS -----------------
 def make_war_stats_embed():
     embed = discord.Embed(
         title="Статистика боёв",
-        color=0x9146FF  # Фиолетовый для WAR_STATS_CHANNEL_ID
+        color=0x9146FF
     )
     embed.add_field(name="Выигранных атак", value=war_stats['win_attack'], inline=True)
     embed.add_field(name="Проигранных атак", value=war_stats['lose_attack'], inline=True)
@@ -63,7 +63,7 @@ def make_target_channel_embed(msg_text):
     embed = discord.Embed(
         title="📣 Входящее сообщение от Telegram",
         description=msg_text,
-        color=0xFF0000  # Красный для TARGET_CHANNEL_ID
+        color=0xFF0000
     )
     embed.set_footer(text="Отслеживание важных событий")
     embed.timestamp = datetime.now(UTC)
@@ -88,7 +88,6 @@ def make_twitch_embed(username, stream_data):
     embed.set_footer(text="Следите за обновлениями Twitch-стрима")
     embed.timestamp = datetime.now(UTC)
     return embed
-# -------------------------------------------------
 
 @discord_client.event
 async def on_ready():
@@ -98,6 +97,7 @@ async def on_ready():
         start=datetime.now(UTC)
     )
     await discord_client.change_presence(activity=activity, status=discord.Status.online)
+    await tree.sync()
     print(f"[INFO] Discord-бот {discord_client.user} готов!", flush=True)
 
 async def send_or_update_stats_message(channel, text):
@@ -188,17 +188,17 @@ async def tg_handler(event):
     except Exception as global_e:
         print(f"[CRITICAL ERROR] event handler exception: {global_e}")
 
-@discord_client.slash_command(name="ping", description="Проверка работы бота")
-async def ping_command(ctx):
-    await ctx.respond("понг блять, он работает не еби его", ephemeral=False)
+@tree.command(name="ping", description="Проверка работы бота")
+async def ping_command(interaction: discord.Interaction):
+    await interaction.response.send_message("понг блять, он работает не еби его", ephemeral=False)
 
-@discord_client.slash_command(name="stats", description="Статистика полученных сообщений")
-async def stats_command(ctx):
+@tree.command(name="stats", description="Статистика полученных сообщений")
+async def stats_command(interaction: discord.Interaction):
     msg = (
         f"Всего сообщений обработано: {stats['total']}\n"
         f"Сообщений от нужного бота: {stats['allowed']}"
     )
-    await ctx.respond(msg, ephemeral=False)
+    await interaction.response.send_message(msg, ephemeral=False)
 
 def get_twitch_token():
     url = 'https://id.twitch.tv/oauth2/token'
