@@ -44,7 +44,6 @@ last_battle_object = None
 intents = discord.Intents.default()
 intents.message_content = True
 discord_client = commands.Bot(command_prefix="!", intents=intents)
-tree = discord.app_commands.CommandTree(discord_client)
 
 def make_war_stats_embed():
     embed = discord.Embed(
@@ -97,7 +96,7 @@ async def on_ready():
         start=datetime.now(UTC)
     )
     await discord_client.change_presence(activity=activity, status=discord.Status.online)
-    await tree.sync()
+    await discord_client.tree.sync()
     print(f"[INFO] Discord-бот {discord_client.user} готов!", flush=True)
 
 async def send_or_update_stats_message(channel, text):
@@ -188,11 +187,11 @@ async def tg_handler(event):
     except Exception as global_e:
         print(f"[CRITICAL ERROR] event handler exception: {global_e}")
 
-@tree.command(name="ping", description="Проверка работы бота")
+@discord_client.tree.command(name="ping", description="Проверка работы бота")
 async def ping_command(interaction: discord.Interaction):
     await interaction.response.send_message("понг блять, он работает не еби его", ephemeral=False)
 
-@tree.command(name="stats", description="Статистика полученных сообщений")
+@discord_client.tree.command(name="stats", description="Статистика полученных сообщений")
 async def stats_command(interaction: discord.Interaction):
     msg = (
         f"Всего сообщений обработано: {stats['total']}\n"
