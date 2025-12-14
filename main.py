@@ -7,8 +7,8 @@ import discord
 from discord.ext import commands
 from datetime import datetime, UTC
 
-
 load_dotenv()
+
 API_ID = int(os.getenv("TG_API_ID"))
 API_HASH = os.getenv("TG_API_HASH")
 SESSION_FILE = os.getenv("TG_SESSION", "session")
@@ -24,22 +24,13 @@ ALLOWED_SENDER_IDS = [
 ]
 BLACKLIST_CHAT_IDS = set()
 
-stats = {
-    "total": 0,
-    "allowed": 0,
-}
+stats = {"total": 0, "allowed": 0}
 
-war_stats = {
-    "win_attack": 0,
-    "lose_attack": 0,
-    "win_def": 0,
-    "lose_def": 0,
-}
+war_stats = {"win_attack": 0, "lose_attack": 0, "win_def": 0, "lose_def": 0}
 stats_message_id = None
 
 last_attack_type = None
 last_battle_object = None
-
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -80,6 +71,18 @@ async def on_ready():
     print(f"[INFO] Discord-бот {discord_client.user} готов!", flush=True)
 
 
+async def get_text_channel(channel_id: int) -> discord.abc.Messageable | None:
+    ch = discord_client.get_channel(channel_id)
+    if ch is not None:
+        return ch
+    try:
+        # fetch_channel делает HTTP-запрос и не зависит от кэша
+        return await discord_client.fetch_channel(channel_id)
+    except Exception as e:
+        print(f"[ERROR] fetch_channel({channel_id}) failed: {e}", flush=True)
+        return None
+
+
 async def send_or_update_stats_message(channel):
     global stats_message_id
     embed = make_war_stats_embed()
@@ -111,20 +114,19 @@ async def tg_handler(event):
             print(f"[SKIP] Blacklisted chat_id: {chat_id}", flush=True)
             return
 
-        try:
-            sender = await event.get_sender()
-            sender_id = sender.id if sender else None
-        except Exception as e:
-            print(f"[ERROR] get_sender failed: {e}", flush=True)
-            sender_id = None
+        # Надёжнее, чем get_sender() (может фейлиться/быть None)
+        sender_id = event.sender_id  # int | None [web:28]
+        msg_text = (getattr(event.message, "message", "") or "").strip()
 
-        msg_text = getattr(event.message, "message", "") or ""
         msg_text = msg_text.replace(
             "📋 Организация: события | Huxley_Exstendyan, сервер Burton", ""
         ).strip()
 
         stats["total"] += 1
-        print(f"[LOG] TG: from id={sender_id} chat={chat_id} text={msg_text!r}", flush=True)
+        print(
+            f"[LOG] TG: from id={sender_id} chat={chat_id} text={msg_text!r}",
+            flush=True,
+        )
 
         if sender_id is None:
             return
@@ -141,7 +143,11 @@ async def tg_handler(event):
             m = re.search(r"за ([^ ]+)[^,]* на [0-9:]+", msg_text)
             last_battle_object = m.group(1) if m else None
 
-        elif ("Захватывает" in msg_text or "Удерживает" in msg_text or "Проигрывает в бою" in msg_text):
+        elif (
+            "Захватывает" in msg_text
+            or "Удерживает" in msg_text
+            or "Проигрывает в бою" in msg_text
+        ):
             if last_attack_type == "atk" and "Захватывает" in msg_text:
                 war_stats["win_attack"] += 1
                 updated = True
@@ -159,22 +165,31 @@ async def tg_handler(event):
             last_battle_object = None
 
         if updated:
-            stats_channel = discord_client.get_channel(WAR_STATS_CHANNEL_ID)
+            stats_channel = await get_text_channel(WAR_STATS_CHANNEL_ID)
             if stats_channel:
                 await send_or_update_stats_message(stats_channel)
 
+        # Пересылка в Discord только для нужного события
         if "забили Вашей организации войну за" not in msg_text:
             return
 
+        print(
+            f"[DEBUG] contains_trigger=True sender_allowed={sender_id in ALLOWED_SENDER_IDS} "
+            f"allowed_list={ALLOWED_SENDER_IDS}",
+            flush=True,
+        )
+
         if ALLOWED_SENDER_IDS and sender_id in ALLOWED_SENDER_IDS:
             stats["allowed"] += 1
-            channel = discord_client.get_channel(TARGET_CHANNEL_ID)
+            channel = await get_text_channel(TARGET_CHANNEL_ID)
             if channel and msg_text:
                 embed = make_target_channel_embed(msg_text)
                 await channel.send(content="@everyone", embed=embed)
                 print(f"[DS_LOG] Переслано из TG в Discord: {msg_text!r}", flush=True)
             else:
-                print("[ERR] Канал Discord не найден!", flush=True)
+                print("[ERR] Канал Discord не найден/нет доступа!", flush=True)
+        else:
+            print("[SKIP] sender_id not in ALLOWED_SENDER_IDS", flush=True)
 
     except Exception as global_e:
         print(f"[CRITICAL ERROR] event handler exception: {global_e}", flush=True)
