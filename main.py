@@ -65,13 +65,12 @@ def make_target_channel_embed(msg_text: str):
 
 
 def make_scheduled_embed():
-    # Заполни заголовок/описание как тебе нужно
     embed = discord.Embed(
-        title="Заголовок отчёта",
-        description="Текст отчёта/напоминания",
-        color=0x00FF00,
+        title="Атака ебать сыновья блядей",
+        description=None,
+        color=0xFF0000,
     )
-    embed.set_footer(text="авто-отчёт по расписанию")
+    embed.set_footer(text="атака по расписанию сервера ла пурерта")
     embed.timestamp = datetime.now(UTC)
     return embed
 
@@ -80,7 +79,7 @@ def make_scheduled_embed():
 async def on_ready():
     activity = discord.Activity(
         type=discord.ActivityType.watching,
-        name="📺🟣 Author: dolma1ovvv👾",
+        name="Author: dolma1ovvv",
         start=datetime.now(UTC),
     )
     await discord_client.change_presence(activity=activity, status=discord.Status.online)
