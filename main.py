@@ -1,11 +1,13 @@
 import os
 import asyncio
 import re
+from datetime import datetime, UTC, timedelta
+
 from dotenv import load_dotenv
 from telethon import TelegramClient, events
 import discord
 from discord.ext import commands
-from datetime import datetime, UTC
+import pytz
 
 load_dotenv()
 
@@ -14,10 +16,9 @@ API_HASH = os.getenv("TG_API_HASH")
 SESSION_FILE = os.getenv("TG_SESSION", "session")
 
 DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
-TARGET_CHANNEL_ID = int(os.getenv("TARGET_CHANNEL_ID"))
-WAR_STATS_CHANNEL_ID = 1411438275171844258
+TARGET_CHANNEL_ID = int(os.getenv("TARGET_CHANNEL_ID"))  # Куда кидаем алерты и расписание
+WAR_STATS_CHANNEL_ID = 1274645422542950411               # Новый канал для статистики
 
-# Пусто/не задано => разрешено всем (важно!)
 ALLOWED_SENDER_IDS = [
     int(x.strip())
     for x in os.getenv("ALLOWED_SENDER_IDS", "").split(",")
@@ -38,7 +39,7 @@ intents = discord.Intents.default()
 intents.message_content = True
 discord_client = commands.Bot(command_prefix="!", intents=intents)
 
-MENTIONS = discord.AllowedMentions(everyone=True)  # чтобы @everyone реально пинговал [web:56]
+MENTIONS = discord.AllowedMentions(everyone=True)
 
 
 def make_war_stats_embed():
@@ -63,6 +64,18 @@ def make_target_channel_embed(msg_text: str):
     return embed
 
 
+def make_scheduled_embed():
+    # Заполни заголовок/описание как тебе нужно
+    embed = discord.Embed(
+        title="Заголовок отчёта",
+        description="Текст отчёта/напоминания",
+        color=0x00FF00,
+    )
+    embed.set_footer(text="авто-отчёт по расписанию")
+    embed.timestamp = datetime.now(UTC)
+    return embed
+
+
 @discord_client.event
 async def on_ready():
     activity = discord.Activity(
@@ -80,7 +93,7 @@ async def get_text_channel(channel_id: int):
     if ch is not None:
         return ch
     try:
-        return await discord_client.fetch_channel(channel_id)  # не зависит от кэша [web:15]
+        return await discord_client.fetch_channel(channel_id)
     except Exception as e:
         print(f"[ERROR] fetch_channel({channel_id}) failed: {e}", flush=True)
         return None
@@ -117,11 +130,11 @@ async def tg_handler(event):
             print(f"[SKIP] Blacklisted chat_id: {chat_id}", flush=True)
             return
 
-        sender_id = event.sender_id  # надёжнее, чем get_sender() [web:28]
+        sender_id = event.sender_id
         msg_text = (getattr(event.message, "message", "") or "").strip()
 
         msg_text = msg_text.replace(
-            "📋 Организация: события | Huxley_Exstendyan, сервер Burton", ""
+            "📋 Организация: события | Huxley_Exstendc, сервер", ""
         ).strip()
 
         stats["total"] += 1
@@ -164,11 +177,9 @@ async def tg_handler(event):
             if stats_channel:
                 await send_or_update_stats_message(stats_channel)
 
-        # триггер пересылки
         if "забили Вашей организации войну за" not in msg_text:
             return
 
-        # ВАЖНО: если список пустой => разрешено всем (иначе ты сам себя заблокируешь) [web:48]
         allowed = (not ALLOWED_SENDER_IDS) or (sender_id in ALLOWED_SENDER_IDS)
         print(f"[DEBUG] contains_trigger=True sender_allowed={allowed} allowed_list={ALLOWED_SENDER_IDS}", flush=True)
 
@@ -213,10 +224,50 @@ async def test_forward(interaction: discord.Interaction):
         await interaction.response.send_message("Канал не найден/нет доступа.", ephemeral=True)
 
 
+async def scheduled_sender():
+    msk = pytz.timezone("Europe/Moscow")
+    target_times = [(12, 30), (15, 30), (18, 30), (21, 30)]
+
+    await discord_client.wait_until_ready()
+    print("[INFO] scheduled_sender started", flush=True)
+
+    while not discord_client.is_closed():
+        now_utc = datetime.now(UTC)
+        now_msk = now_utc.astimezone(msk)
+        today = now_msk.date()
+
+        candidates = []
+        for h, m in target_times:
+            t = msk.localize(datetime(today.year, today.month, today.day, h, m))
+            if t <= now_msk:
+                t = t + timedelta(days=1)
+            candidates.append(t)
+
+        next_run_msk = min(candidates)
+        next_run_utc = next_run_msk.astimezone(UTC)
+        sleep_seconds = (next_run_utc - now_utc).total_seconds()
+
+        print(f"[INFO] next scheduled send at {next_run_msk} MSK (in {sleep_seconds:.0f}s)", flush=True)
+        await asyncio.sleep(max(1, sleep_seconds))
+
+        try:
+            channel = await get_text_channel(TARGET_CHANNEL_ID)
+            if channel:
+                embed = make_scheduled_embed()
+                await channel.send(content="@everyone", embed=embed, allowed_mentions=MENTIONS)
+                print("[INFO] scheduled embed sent", flush=True)
+            else:
+                print("[ERR] scheduled_sender: TARGET_CHANNEL_ID not available", flush=True)
+        except Exception as e:
+            print(f"[CRITICAL ERROR] scheduled_sender exception: {e}", flush=True)
+            await asyncio.sleep(5)
+
+
 async def main():
     tg_task = asyncio.create_task(tg_client.start())
     ds_task = asyncio.create_task(discord_client.start(DISCORD_BOT_TOKEN))
-    await asyncio.gather(tg_task, ds_task)
+    sched_task = asyncio.create_task(scheduled_sender())
+    await asyncio.gather(tg_task, ds_task, sched_task)
 
 
 if __name__ == "__main__":
