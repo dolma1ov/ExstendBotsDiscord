@@ -66,8 +66,8 @@ def make_target_channel_embed(msg_text: str):
 
 def make_scheduled_embed():
     embed = discord.Embed(
-        title="Атака ебать сыновья блядей",
-        description=None,
+        title="АТАКА ЧЕРЕЗ 30 МИНУТ",
+        description="ЗА 10 МИНУТ ВСЕ В ВОЙС КТО РЕАКУ СТАВИЛ СЫНОВЬЯ БЛЯДЕЙ",
         color=0xFF0000,
     )
     embed.set_footer(text="атака по расписанию сервера ла пурерта")
