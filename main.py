@@ -59,7 +59,6 @@ def make_target_channel_embed(msg_text: str):
         description=msg_text,
         color=0xFF0000,
     )
-    embed.set_footer(text="Отслеживание важных событий")
     embed.timestamp = datetime.now(UTC)
     return embed
 
@@ -67,10 +66,9 @@ def make_target_channel_embed(msg_text: str):
 def make_scheduled_embed():
     embed = discord.Embed(
         title="АТАКА ЧЕРЕЗ 30 МИНУТ",
-        description="ЗА 10 МИНУТ ВСЕ В ВОЙС КТО РЕАКУ СТАВИЛ СЫНОВЬЯ БЛЯДЕЙ",
+        description="ЗА 10 МИНУТ ВСЕ В ВОЙС",
         color=0xFF0000,
     )
-    embed.set_footer(text="атака по расписанию сервера ла пурерта")
     embed.timestamp = datetime.now(UTC)
     return embed
 
