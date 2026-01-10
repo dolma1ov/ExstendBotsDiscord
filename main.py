@@ -65,8 +65,8 @@ def make_target_channel_embed(msg_text: str):
 
 def make_scheduled_embed():
     embed = discord.Embed(
-        title="АТАКА ЧЕРЕЗ 30 МИНУТ",
-        description="ЗА 10 МИНУТ ВСЕ В ВОЙС",
+        title="АТАКА ЧЕРЕЗ 20 МИНУТ",
+        description="ВСЕ В ВОЙС ПОСЛЕ ЗАБИВА",
         color=0xFF0000,
     )
     embed.timestamp = datetime.now(UTC)
@@ -131,7 +131,7 @@ async def tg_handler(event):
         msg_text = (getattr(event.message, "message", "") or "").strip()
 
         msg_text = msg_text.replace(
-            "📋 Организация: события | Huxley_Exstendc, сервер", ""
+            "📋 Организация: события | Huxley_Exstendc, сервер Burton", ""
         ).strip()
 
         stats["total"] += 1
@@ -223,7 +223,7 @@ async def test_forward(interaction: discord.Interaction):
 
 async def scheduled_sender():
     msk = pytz.timezone("Europe/Moscow")
-    target_times = [(12, 30), (15, 30), (18, 30), (21, 30)]
+    target_times = [(9, 40), (11, 40), (13, 40), (15, 40), (17, 40), (19, 40), (21, 40), (23, 40)]
 
     await discord_client.wait_until_ready()
     print("[INFO] scheduled_sender started", flush=True)
