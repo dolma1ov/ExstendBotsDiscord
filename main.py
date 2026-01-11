@@ -29,7 +29,7 @@ BLACKLIST_CHAT_IDS = set()
 
 stats = {"total": 0, "allowed": 0}
 
-war_stats = {"win_attack": 0, "lose_attack": 0, "win_def": 0, "lose_def": 0}
+war_stats = {"win_attack": 5, "lose_attack": 2, "win_def": 7, "lose_def": 1}
 stats_message_id = None
 
 last_attack_type = None
