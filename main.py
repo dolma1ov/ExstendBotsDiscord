@@ -223,7 +223,7 @@ async def test_forward(interaction: discord.Interaction):
 
 async def scheduled_sender():
     msk = pytz.timezone("Europe/Moscow")
-    target_times = [(9, 40), (11, 40), (13, 40), (15, 40), (17, 40), (19, 40), (21, 40), (23, 40)]
+    target_times = [(10, 40), (13, 40), (16, 40), (19, 40), (22, 40)]
 
     await discord_client.wait_until_ready()
     print("[INFO] scheduled_sender started", flush=True)
