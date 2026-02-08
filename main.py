@@ -63,14 +63,14 @@ def make_target_channel_embed(msg_text: str):
     return embed
 
 
-def make_scheduled_embed():
-    embed = discord.Embed(
-        title="АТАКА ЧЕРЕЗ 20 МИНУТ",
-        description="ВСЕ В ВОЙС ПОСЛЕ ЗАБИВА",
-        color=0xFF0000,
-    )
-    embed.timestamp = datetime.now(UTC)
-    return embed
+# def make_scheduled_embed():
+#     embed = discord.Embed(
+#         title="АТАКА ЧЕРЕЗ 20 МИНУТ",
+#         description="ВСЕ В ВОЙС ПОСЛЕ ЗАБИВА",
+#         color=0xFF0000,
+#     )
+#     embed.timestamp = datetime.now(UTC)
+#     return embed
 
 
 @discord_client.event
@@ -250,7 +250,7 @@ async def scheduled_sender():
         try:
             channel = await get_text_channel(TARGET_CHANNEL_ID)
             if channel:
-                embed = make_scheduled_embed()
+                # embed = make_scheduled_embed()
                 await channel.send(content="@everyone", embed=embed, allowed_mentions=MENTIONS)
                 print("[INFO] scheduled embed sent", flush=True)
             else:
