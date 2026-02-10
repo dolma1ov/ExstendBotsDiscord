@@ -2,6 +2,7 @@ import os
 import asyncio
 import re
 from datetime import datetime, UTC, timedelta
+from time import time
 
 from dotenv import load_dotenv
 from telethon import TelegramClient, events
@@ -35,6 +36,10 @@ stats_message_id = None
 last_attack_type = None
 last_battle_object = None
 
+# троттлинг алертов в ДС (секунды)
+ALERT_COOLDOWN = 10
+last_alert_ts = 0
+
 intents = discord.Intents.default()
 intents.message_content = True
 discord_client = commands.Bot(command_prefix="!", intents=intents)
@@ -63,14 +68,14 @@ def make_target_channel_embed(msg_text: str):
     return embed
 
 
-# def make_scheduled_embed():
-#     embed = discord.Embed(
-#         title="АТАКА ЧЕРЕЗ 20 МИНУТ",
-#         description="ВСЕ В ВОЙС ПОСЛЕ ЗАБИВА",
-#         color=0xFF0000,
-#     )
-#     embed.timestamp = datetime.now(UTC)
-#     return embed
+def make_scheduled_embed():
+    embed = discord.Embed(
+        title="АТАКА ЧЕРЕЗ 20 МИНУТ",
+        description="ВСЕ В ВОЙС ПОСЛЕ ЗАБИВА",
+        color=0xFF0000,
+    )
+    embed.timestamp = datetime.now(UTC)
+    return embed
 
 
 @discord_client.event
@@ -113,13 +118,16 @@ async def send_or_update_stats_message(channel):
         msg = await channel.send(embed=embed)
         stats_message_id = msg.id
 
+    # лёгкий антиспам на edits
+    await asyncio.sleep(0.2)
+
 
 tg_client = TelegramClient(SESSION_FILE, API_ID, API_HASH)
 
 
 @tg_client.on(events.NewMessage(incoming=True))
 async def tg_handler(event):
-    global last_attack_type, last_battle_object
+    global last_attack_type, last_battle_object, last_alert_ts
 
     try:
         chat_id = event.chat_id
@@ -187,8 +195,14 @@ async def tg_handler(event):
         channel = await get_text_channel(TARGET_CHANNEL_ID)
         if channel and msg_text:
             embed = make_target_channel_embed(msg_text)
-            await channel.send(content="@everyone", embed=embed, allowed_mentions=MENTIONS)
-            print(f"[DS_LOG] Переслано из TG в Discord: {msg_text!r}", flush=True)
+
+            now = time()
+            if now - last_alert_ts < ALERT_COOLDOWN:
+                print("[WARN] alert throttled to avoid spam", flush=True)
+            else:
+                last_alert_ts = now
+                await channel.send(content="@everyone", embed=embed, allowed_mentions=MENTIONS)
+                print(f"[DS_LOG] Переслано из TG в Discord: {msg_text!r}", flush=True)
         else:
             print("[ERR] Канал Discord не найден/нет доступа!", flush=True)
 
@@ -250,7 +264,7 @@ async def scheduled_sender():
         try:
             channel = await get_text_channel(TARGET_CHANNEL_ID)
             if channel:
-                # embed = make_scheduled_embed()
+                embed = make_scheduled_embed()
                 await channel.send(content="@everyone", embed=embed, allowed_mentions=MENTIONS)
                 print("[INFO] scheduled embed sent", flush=True)
             else:
