@@ -68,14 +68,14 @@ def make_target_channel_embed(msg_text: str):
     return embed
 
 
-def make_scheduled_embed():
-    embed = discord.Embed(
-        title="АТАКА ЧЕРЕЗ 20 МИНУТ",
-        description="ВСЕ В ВОЙС ПОСЛЕ ЗАБИВА",
-        color=0xFF0000,
-    )
-    embed.timestamp = datetime.now(UTC)
-    return embed
+# def make_scheduled_embed():
+#     embed = discord.Embed(
+#         title="АТАКА ЧЕРЕЗ 20 МИНУТ",
+#         description="ВСЕ В ВОЙС ПОСЛЕ ЗАБИВА",
+#         color=0xFF0000,
+#     )
+#     embed.timestamp = datetime.now(UTC)
+#     return embed
 
 
 @discord_client.event
