@@ -235,50 +235,50 @@ async def test_forward(interaction: discord.Interaction):
         await interaction.response.send_message("Канал не найден/нет доступа.", ephemeral=True)
 
 
-async def scheduled_sender():
-    msk = pytz.timezone("Europe/Moscow")
-    target_times = [(10, 40), (13, 40), (16, 40), (19, 40), (22, 40)]
+# async def scheduled_sender():
+#     msk = pytz.timezone("Europe/Moscow")
+#     target_times = [(10, 40), (13, 40), (16, 40), (19, 40), (22, 40)]
 
-    await discord_client.wait_until_ready()
-    print("[INFO] scheduled_sender started", flush=True)
+#     await discord_client.wait_until_ready()
+#     print("[INFO] scheduled_sender started", flush=True)
 
-    while not discord_client.is_closed():
-        now_utc = datetime.now(UTC)
-        now_msk = now_utc.astimezone(msk)
-        today = now_msk.date()
+#     while not discord_client.is_closed():
+#         now_utc = datetime.now(UTC)
+#         now_msk = now_utc.astimezone(msk)
+#         today = now_msk.date()
 
-        candidates = []
-        for h, m in target_times:
-            t = msk.localize(datetime(today.year, today.month, today.day, h, m))
-            if t <= now_msk:
-                t = t + timedelta(days=1)
-            candidates.append(t)
+#         candidates = []
+#         for h, m in target_times:
+#             t = msk.localize(datetime(today.year, today.month, today.day, h, m))
+#             if t <= now_msk:
+#                 t = t + timedelta(days=1)
+#             candidates.append(t)
 
-        next_run_msk = min(candidates)
-        next_run_utc = next_run_msk.astimezone(UTC)
-        sleep_seconds = (next_run_utc - now_utc).total_seconds()
+#         next_run_msk = min(candidates)
+#         next_run_utc = next_run_msk.astimezone(UTC)
+#         sleep_seconds = (next_run_utc - now_utc).total_seconds()
 
-        print(f"[INFO] next scheduled send at {next_run_msk} MSK (in {sleep_seconds:.0f}s)", flush=True)
-        await asyncio.sleep(max(1, sleep_seconds))
+#         print(f"[INFO] next scheduled send at {next_run_msk} MSK (in {sleep_seconds:.0f}s)", flush=True)
+#         await asyncio.sleep(max(1, sleep_seconds))
 
-        try:
-            channel = await get_text_channel(TARGET_CHANNEL_ID)
-            if channel:
-                embed = make_scheduled_embed()
-                await channel.send(content="@everyone", embed=embed, allowed_mentions=MENTIONS)
-                print("[INFO] scheduled embed sent", flush=True)
-            else:
-                print("[ERR] scheduled_sender: TARGET_CHANNEL_ID not available", flush=True)
-        except Exception as e:
-            print(f"[CRITICAL ERROR] scheduled_sender exception: {e}", flush=True)
-            await asyncio.sleep(5)
+#         try:
+#             channel = await get_text_channel(TARGET_CHANNEL_ID)
+#             if channel:
+#                 embed = make_scheduled_embed()
+#                 await channel.send(content="@everyone", embed=embed, allowed_mentions=MENTIONS)
+#                 print("[INFO] scheduled embed sent", flush=True)
+#             else:
+#                 print("[ERR] scheduled_sender: TARGET_CHANNEL_ID not available", flush=True)
+#         except Exception as e:
+#             print(f"[CRITICAL ERROR] scheduled_sender exception: {e}", flush=True)
+#             await asyncio.sleep(5)
 
 
 async def main():
     tg_task = asyncio.create_task(tg_client.start())
     ds_task = asyncio.create_task(discord_client.start(DISCORD_BOT_TOKEN))
-    sched_task = asyncio.create_task(scheduled_sender())
-    await asyncio.gather(tg_task, ds_task, sched_task)
+    # sched_task = asyncio.create_task(scheduled_sender())
+    # await asyncio.gather(tg_task, ds_task, sched_task)
 
 
 if __name__ == "__main__":
