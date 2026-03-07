@@ -3,7 +3,6 @@ import asyncio
 import re
 from datetime import datetime, UTC, timedelta
 from time import time
-
 from dotenv import load_dotenv
 from telethon import TelegramClient, events
 import discord
@@ -18,7 +17,7 @@ SESSION_FILE = os.getenv("TG_SESSION", "session")
 
 DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 TARGET_CHANNEL_ID = int(os.getenv("TARGET_CHANNEL_ID"))
-WAR_STATS_CHANNEL_ID = 1274645422542950411
+WAR_STATS_CHANNEL_ID = 1479807955372085299
 
 ALLOWED_SENDER_IDS = [
     int(x.strip())
@@ -137,7 +136,7 @@ async def tg_handler(event):
         msg_text = (getattr(event.message, "message", "") or "").strip()
 
         msg_text = msg_text.replace(
-            "📋 Организация: события | Huxley_Exstendc, сервер Burton", ""
+            "📋 Организация: события | Emo_Work, сервер Downtown", ""
         ).strip()
 
         stats["total"] += 1
