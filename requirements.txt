@@ -3,3 +3,5 @@ discord.py>=2.7.1
 python-dotenv>=1.2.2
 requests>=2.33.1
 pytz
+python-socks[asyncio]>=2.4.4
+PySocks>=1.7.1
