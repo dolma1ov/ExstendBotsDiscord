@@ -4,20 +4,24 @@ import re
 from datetime import datetime, UTC, timedelta
 from time import time
 from dotenv import load_dotenv
-from telethon import TelegramClient, events
+from telethon import TelegramClient, events, connection
 import discord
 from discord.ext import commands
 import pytz
 
+
 load_dotenv()
+
 
 API_ID = int(os.getenv("TG_API_ID"))
 API_HASH = os.getenv("TG_API_HASH")
 SESSION_FILE = os.getenv("TG_SESSION", "session")
 
+
 DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 TARGET_CHANNEL_ID = int(os.getenv("TARGET_CHANNEL_ID"))
-WAR_STATS_CHANNEL_ID = 1479807955372085299
+WAR_STATS_CHANNEL_ID = 1493147184349188178
+
 
 ALLOWED_SENDER_IDS = [
     int(x.strip())
@@ -25,25 +29,33 @@ ALLOWED_SENDER_IDS = [
     if x.strip().isdigit()
 ]
 
+
 BLACKLIST_CHAT_IDS = set()
+
 
 stats = {"total": 0, "allowed": 0}
 
+
 war_stats = {"win_attack": 0, "lose_attack": 0, "win_def": 0, "lose_def": 0}
-points = 3
+points = 0
 stats_message_id = None
+
 
 last_attack_type = None
 last_battle_object = None
 
+
 ALERT_COOLDOWN = 10
 last_alert_ts = 0
+
 
 intents = discord.Intents.default()
 intents.message_content = True
 discord_client = commands.Bot(command_prefix="!", intents=intents)
 
+
 MENTIONS = discord.AllowedMentions(everyone=True)
+
 
 msk_tz = pytz.timezone("Europe/Moscow")
 
@@ -118,8 +130,17 @@ async def send_or_update_stats_message(channel):
 
     await asyncio.sleep(0.2)
 
+MT_PROXY_HOST = "proxy.loopenergy.ru"
+MT_PROXY_PORT = 8800
+MT_PROXY_SECRET = "ee3c09c680b76ee91a4c25ad51f742267d79616e6465782e7275"
 
-tg_client = TelegramClient(SESSION_FILE, API_ID, API_HASH)
+tg_client = TelegramClient(
+    SESSION_FILE,
+    API_ID,
+    API_HASH,
+    connection=connection.ConnectionTcpMTProxyRandomizedIntermediate,
+    proxy=(MT_PROXY_HOST, MT_PROXY_PORT, MT_PROXY_SECRET),
+)
 
 
 @tg_client.on(events.NewMessage(incoming=True))
@@ -158,9 +179,11 @@ async def tg_handler(event):
             m = re.search(r"за ([^ ]+)[^,]* на [0-9:]+", msg_text)
             last_battle_object = m.group(1) if m else None
 
-        elif ("Захватывает" in msg_text or
-              "Удерживает" in msg_text or
-              "Проигрывает в бою" in msg_text):
+        elif (
+            "Захватывает" in msg_text
+            or "Удерживает" in msg_text
+            or "Проигрывает в бою" in msg_text
+        ):
 
             if last_attack_type == "atk" and "Захватывает" in msg_text:
                 war_stats["win_attack"] += 1
